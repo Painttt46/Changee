@@ -16,6 +16,12 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // Responsive utilities
+  bool _isTablet(BuildContext context) => MediaQuery.of(context).size.width >= 768;
+  bool _isDesktop(BuildContext context) => MediaQuery.of(context).size.width >= 1024;
+  double _getResponsivePadding(BuildContext context) => _isTablet(context) ? 32 : 20;
+  int _getCrossAxisCount(BuildContext context) => _isDesktop(context) ? 3 : _isTablet(context) ? 2 : 1;
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +120,9 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
   }
 
   Widget _buildHeader() {
+    final isTablet = _isTablet(context);
+    final padding = _getResponsivePadding(context);
+    
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -126,18 +135,18 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
           bottomRight: Radius.circular(30),
         ),
       ),
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 30),
+      padding: EdgeInsets.fromLTRB(padding, 0, padding, 30),
       child: Column(
         children: [
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(isTablet ? 16 : 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: Icon(Icons.history, color: Colors.white, size: 30),
+                child: Icon(Icons.history, color: Colors.white, size: isTablet ? 36 : 30),
               ),
               SizedBox(width: 15),
               Expanded(
@@ -148,7 +157,7 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
                       'ประวัติการวิเคราะห์',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: isTablet ? 24 : 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -156,7 +165,7 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
                       'ดูผลการวิเคราะห์โรคข้าวที่ผ่านมา',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
+                        fontSize: isTablet ? 16 : 14,
                       ),
                     ),
                   ],
@@ -170,12 +179,16 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
   }
 
   Widget _buildSearchAndFilter() {
+    final padding = _getResponsivePadding(context);
+    final isTablet = _isTablet(context);
+    
     return Container(
-      padding: EdgeInsets.all(20),
+      padding: EdgeInsets.all(padding),
       child: Column(
         children: [
           // Search Bar
           Container(
+            constraints: BoxConstraints(maxWidth: isTablet ? 600 : double.infinity),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
@@ -200,22 +213,20 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
           SizedBox(height: 15),
           
           // Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          Center(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: ['ทั้งหมด', 'วันนี้', 'สัปดาห์นี้', 'เดือนนี้'].map((filter) {
-                return Padding(
-                  padding: EdgeInsets.only(right: 10),
-                  child: FilterChip(
-                    label: Text(filter),
-                    selected: _selectedFilter == filter,
-                    onSelected: (selected) => setState(() => _selectedFilter = filter),
-                    backgroundColor: Colors.grey[200],
-                    selectedColor: Colors.green[100],
-                    labelStyle: TextStyle(
-                      color: _selectedFilter == filter ? Colors.green[800] : Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
+                return FilterChip(
+                  label: Text(filter),
+                  selected: _selectedFilter == filter,
+                  onSelected: (selected) => setState(() => _selectedFilter = filter),
+                  backgroundColor: Colors.grey[200],
+                  selectedColor: Colors.green[100],
+                  labelStyle: TextStyle(
+                    color: _selectedFilter == filter ? Colors.green[800] : Colors.grey[700],
+                    fontWeight: FontWeight.w500,
                   ),
                 );
               }).toList(),
@@ -248,16 +259,34 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
           return _buildEmptyState();
         }
 
+        final crossAxisCount = _getCrossAxisCount(context);
+        final padding = _getResponsivePadding(context);
+
         return FadeTransition(
           opacity: _fadeAnimation,
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            itemCount: filteredDocs.length,
-            itemBuilder: (context, index) {
-              final data = filteredDocs[index].data() as Map<String, dynamic>;
-              return _buildHistoryCard(data, index);
-            },
-          ),
+          child: crossAxisCount == 1 
+            ? ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: padding),
+                itemCount: filteredDocs.length,
+                itemBuilder: (context, index) {
+                  final data = filteredDocs[index].data() as Map<String, dynamic>;
+                  return _buildHistoryCard(data, index);
+                },
+              )
+            : GridView.builder(
+                padding: EdgeInsets.symmetric(horizontal: padding),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: filteredDocs.length,
+                itemBuilder: (context, index) {
+                  final data = filteredDocs[index].data() as Map<String, dynamic>;
+                  return _buildHistoryCard(data, index);
+                },
+              ),
         );
       },
     );
@@ -311,6 +340,8 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
     final confidence = data['confidence'] as double?;
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final deviceInfo = data['deviceInfo'] ?? 'ไม่ทราบอุปกรณ์';
+    final isTablet = _isTablet(context);
+    final isDesktop = _isDesktop(context);
 
     final formattedTime = timestamp != null
         ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
@@ -325,7 +356,7 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
     }
 
     return Container(
-      margin: EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: isDesktop ? 0 : 16),
       child: Material(
         elevation: 4,
         borderRadius: BorderRadius.circular(16),
@@ -344,7 +375,7 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
               children: [
                 // Header
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(isTablet ? 20 : 16),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.only(
@@ -355,12 +386,12 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
                   child: Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.all(8),
+                        padding: EdgeInsets.all(isTablet ? 10 : 8),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(statusIcon, color: statusColor, size: 20),
+                        child: Icon(statusIcon, color: statusColor, size: isTablet ? 24 : 20),
                       ),
                       SizedBox(width: 12),
                       Expanded(
@@ -370,17 +401,17 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
                             Text(
                               prediction,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: isTablet ? 18 : 16,
                                 fontWeight: FontWeight.bold,
                                 color: statusColor,
                               ),
-                              maxLines: 1,
+                              maxLines: isDesktop ? 2 : 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               formattedTime,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: isTablet ? 14 : 12,
                                 color: Colors.grey[600],
                               ),
                             ),
@@ -407,129 +438,133 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
                 ),
                 
                 // Content
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      // Image
-                      Hero(
-                        tag: 'image_$index',
-                        child: Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        color: Colors.grey[200],
-                                        child: Center(
-                                          child: SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: Colors.grey[200],
-                                        child: Icon(Icons.broken_image, color: Colors.grey[400], size: 30),
-                                      );
-                                    },
-                                  )
-                                : Container(
-                                    color: Colors.grey[200],
-                                    child: Icon(Icons.image, color: Colors.grey[400], size: 30),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      
-                      // Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(isTablet ? 20 : 16),
+                    child: isDesktop 
+                      ? Column(
                           children: [
-                            if (confidence != null) ...[
-                              Row(
-                                children: [
-                                  Icon(Icons.analytics, size: 16, color: Colors.blue[600]),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'ความแม่นยำ',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                            // Image
+                            Expanded(
+                              child: Hero(
+                                tag: 'image_$index',
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: LinearProgressIndicator(
-                                      value: confidence,
-                                      backgroundColor: Colors.grey[200],
-                                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    '${(confidence * 100).toStringAsFixed(0)}%',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 12),
-                            ],
-                            Row(
-                              children: [
-                                Icon(Icons.smartphone, size: 14, color: Colors.grey[500]),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    deviceInfo,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: imageUrl.isNotEmpty
+                                        ? Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, loadingProgress) {
+                                              if (loadingProgress == null) return child;
+                                              return Container(
+                                                color: Colors.grey[200],
+                                                child: Center(
+                                                  child: SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey[200],
+                                                child: Icon(Icons.broken_image, color: Colors.grey[400], size: 30),
+                                              );
+                                            },
+                                          )
+                                        : Container(
+                                            color: Colors.grey[200],
+                                            child: Icon(Icons.image, color: Colors.grey[400], size: 30),
+                                          ),
                                   ),
                                 ),
-                              ],
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            
+                            // Details
+                            _buildDetailsSection(confidence, statusColor, deviceInfo),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            // Image
+                            Hero(
+                              tag: 'image_$index',
+                              child: Container(
+                                width: isTablet ? 90 : 70,
+                                height: isTablet ? 90 : 70,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: imageUrl.isNotEmpty
+                                      ? Image.network(
+                                          imageUrl,
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, loadingProgress) {
+                                            if (loadingProgress == null) return child;
+                                            return Container(
+                                              color: Colors.grey[200],
+                                              child: Center(
+                                                child: SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              color: Colors.grey[200],
+                                              child: Icon(Icons.broken_image, color: Colors.grey[400], size: 30),
+                                            );
+                                          },
+                                        )
+                                      : Container(
+                                          color: Colors.grey[200],
+                                          child: Icon(Icons.image, color: Colors.grey[400], size: 30),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 16),
+                            
+                            // Details
+                            Expanded(
+                              child: _buildDetailsSection(confidence, statusColor, deviceInfo),
                             ),
                           ],
                         ),
-                      ),
-                    ],
                   ),
                 ),
               ],
@@ -540,100 +575,173 @@ class _HistoryPageState extends State<HistoryPage> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildDetailsSection(double? confidence, Color statusColor, String deviceInfo) {
+    final isTablet = _isTablet(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (confidence != null) ...[
+          Row(
+            children: [
+              Icon(Icons.analytics, size: isTablet ? 18 : 16, color: Colors.blue[600]),
+              SizedBox(width: 6),
+              Text(
+                'ความแม่นยำ',
+                style: TextStyle(
+                  fontSize: isTablet ? 14 : 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: confidence,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  minHeight: isTablet ? 8 : 6,
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                '${(confidence * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: isTablet ? 14 : 12,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+        ],
+        Row(
           children: [
-            Container(
-              padding: EdgeInsets.all(40),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.green[100]!, Colors.green[50]!],
+            Icon(Icons.smartphone, size: isTablet ? 16 : 14, color: Colors.grey[500]),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                deviceInfo,
+                style: TextStyle(
+                  fontSize: isTablet ? 13 : 11,
+                  color: Colors.grey[600],
                 ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: Offset(0, 10),
-                  ),
-                ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              child: Icon(
-                Icons.history,
-                size: 80,
-                color: Colors.green[600],
-              ),
-            ),
-            SizedBox(height: 30),
-            Text(
-              'ยังไม่มีประวัติการวิเคราะห์',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'เริ่มต้นด้วยการถ่ายรูปใบข้าว\nเพื่อวิเคราะห์โรคและสร้างประวัติ',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                height: 1.6,
-              ),
-            ),
-            SizedBox(height: 40),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green[600]!, Colors.green[500]!],
-                ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/camera'),
-                icon: Icon(Icons.camera_alt, size: 24),
-                label: Text(
-                  'เริ่มวิเคราะห์',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shadowColor: Colors.transparent,
-                  padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildFeatureChip('📸 ถ่ายรูป'),
-                SizedBox(width: 8),
-                _buildFeatureChip('🔍 วิเคราะห์'),
-                SizedBox(width: 8),
-                _buildFeatureChip('📊 ดูผล'),
-              ],
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final isTablet = _isTablet(context);
+    final padding = _getResponsivePadding(context);
+    
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(padding),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isTablet ? 600 : double.infinity),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(isTablet ? 50 : 40),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.green[100]!, Colors.green[50]!],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.history,
+                  size: isTablet ? 100 : 80,
+                  color: Colors.green[600],
+                ),
+              ),
+              SizedBox(height: 30),
+              Text(
+                'ยังไม่มีประวัติการวิเคราะห์',
+                style: TextStyle(
+                  fontSize: isTablet ? 26 : 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'เริ่มต้นด้วยการถ่ายรูปใบข้าว\nเพื่อวิเคราะห์โรคและสร้างประวัติ',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 18 : 16,
+                  color: Colors.grey[600],
+                  height: 1.6,
+                ),
+              ),
+              SizedBox(height: 40),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green[600]!, Colors.green[500]!],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/camera'),
+                  icon: Icon(Icons.camera_alt, size: isTablet ? 28 : 24),
+                  label: Text(
+                    'เริ่มวิเคราะห์',
+                    style: TextStyle(fontSize: isTablet ? 18 : 16, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 50 : 40, vertical: isTablet ? 20 : 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildFeatureChip('📸 ถ่ายรูป'),
+                  _buildFeatureChip('🔍 วิเคราะห์'),
+                  _buildFeatureChip('📊 ดูผล'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
